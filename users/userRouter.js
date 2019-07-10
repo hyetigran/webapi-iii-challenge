@@ -115,7 +115,7 @@ router.put("/:id", validateUserId, validateUser, async (req, res) => {
     })
     .catch(err => {
       res.status(500).json({
-        message: "Error updating the post"
+        message: "Error updating the user"
       });
     });
 });
