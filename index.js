@@ -1,6 +1,7 @@
 // code away!
 const express = require("express");
 const userRoutes = require("./users/userRouter");
+const postRoutes = require("./posts/postRouter");
 
 const server = express();
 
@@ -12,7 +13,8 @@ server.get("/", (req, res, next) => {
   res.send(`<h1>Hellow World! - Learning Middleware</h1>`);
 });
 
-server.use("/", userRoutes);
+server.use("/users", userRoutes);
+server.use("/posts", postRoutes);
 
 function logger(req, res, next) {
   console.log(

@@ -1,55 +1,35 @@
 const express = require("express");
 
 const userDb = require("./userDb");
+const postsDb = require("../posts/postDb");
 const router = express.Router();
 
-router.post("/", (req, res) => {
-  const post = req.body;
-  userDb
-    .insert(post)
-    .then(post => {
-      res.status(201).json(post);
+router.post("/", validateUser, async (req, res) => {
+  const user = req.body;
+  await userDb
+    .insert(user)
+    .then(user => {
+      res.status(201).json(user);
     })
     .catch(err => {
       res.status(500).json({
-        message: "Error adding the post"
+        message: "Error adding the user"
       });
     });
 });
 
-router.post("/:id/posts", (req, res) => {
+router.post("/:id/posts", validatePost, async (req, res) => {
   const { params, body } = req;
-  userDb
+  await userDb
     .getById(params.id)
     .then(result => {
       console.log(result[0].id);
-      if (result[0].id > 0) {
-        if (body.text) {
-          const commentText = { ...body, post_id: params.id };
-          Db.insertComment(commentText)
-            .then(result => {
-              console.log("happy path");
-              console.log(result);
-              res.status(201).json(body);
-            })
-            .catch(err => {
-              res.status(404).json({ errorMessage: "Can't find that id!" });
-            });
-        } else {
-          res.status(400).json({
-            errorMessage: "Please provide text for the comment."
-          });
-        }
-      } else {
-        res.status(404).json({
-          message: "The post with the specified ID does not exist."
-        });
-      }
+      const postData = { ...body, user_id: params.id };
+      const newPost = postsDb.insert(postData);
+      res.status(201).json(newPost);
     })
     .catch(err => {
-      res
-        .status(500)
-        .json({ errorMessage: "Can't find the comment in the post" });
+      res.status(500).json({ errorMessage: "Server errror" });
     });
 });
 
@@ -60,14 +40,14 @@ router.get("/", (req, res) => {
       res.status(200).json(users);
     })
     .catch(err => {
-      res.status(500).json({ message: "Error retrieving posts" });
+      res.status(500).json({ message: "Error retrieving users" });
     });
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:id", validateUserId, async (req, res) => {
   const { id } = req.params;
   //console.log("1. id", id);
-  userDb
+  await userDb
     .getById(id)
     .then(user => {
       //console.log("happy path");
@@ -79,9 +59,9 @@ router.get("/:id", (req, res) => {
     });
 });
 
-router.get("/:id/posts", (req, res) => {
+router.get("/:id/posts", validateUserId, async (req, res) => {
   const { id } = req.params;
-  userDb
+  await userDb
     .getById(id)
     .then(userData => {
       //console.log(userData);
@@ -104,9 +84,9 @@ router.get("/:id/posts", (req, res) => {
     });
 });
 
-router.delete("/:id", (req, res) => {
+router.delete("/:id", validateUserId, async (req, res) => {
   const { id } = req.params;
-  userDb
+  await userDb
     .remove(id)
     .then(user => {
       console.log("happy path");
@@ -125,10 +105,10 @@ router.delete("/:id", (req, res) => {
     });
 });
 
-router.put("/:id", (req, res) => {
+router.put("/:id", validateUserId, validateUser, async (req, res) => {
   const { id } = req.params.id;
   const user = req.body;
-  userDb
+  await userDb
     .update(id, user)
     .then(result => {
       res.status(200).json(result);
@@ -141,10 +121,66 @@ router.put("/:id", (req, res) => {
 });
 //custom middleware
 
-// function validateUserId(req, res, next) {}
+async function validateUserId(req, res, next) {
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({
+      status: 400,
+      error: "Please provide a valid id"
+    });
+  } else {
+    const user = await userDb.getById(id);
+    if (user) {
+      return next();
+    } else {
+      return res.status(404).json({
+        status: 404,
+        error: "User was not found"
+      });
+    }
+  }
+}
 
-// function validateUser(req, res, next) {}
+function validateUser(req, res, next) {
+  const { body } = req;
+  // status is true if request body is empty
+  const status = Object.keys(body).length === 0;
+  //const status = Object.keys(body).length === 0 && body.constructor === Object;
+  if (status) {
+    return res.status(400).json({
+      status: 400,
+      message: "missing user data"
+    });
+  } else {
+    if (!body.name) {
+      return res.status(400).json({
+        status: 400,
+        message: "missing required name field"
+      });
+    } else {
+      return next();
+    }
+  }
+}
 
-// function validatePost(req, res, next) {}
+async function validatePost(req, res, next) {
+  const { body } = req;
+  const status = Object.keys(body).length === 0;
+  if (status) {
+    return res.status(400).json({
+      status: 400,
+      message: "missing post data"
+    });
+  } else {
+    if (!body.text) {
+      return res.status(400).json({
+        status: 400,
+        message: "missing required text field"
+      });
+    } else {
+      return next();
+    }
+  }
+}
 
 module.exports = router;
